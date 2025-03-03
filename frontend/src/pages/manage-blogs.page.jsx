@@ -62,13 +62,23 @@ const ManageBlogs = () => {
     navigate("/editor");
   };
   
-  const handleDelete = async (blogId) => {
+  const handleDelete = async (blog) => {
     if (!confirm("Are you sure you want to delete this blog?")) return;
     
     try {
-      const token = await user.getToken();
+      let token = '';
+      if (user && typeof user.getToken === 'function') {
+        token = await user.getToken();
+      } else if (window.Clerk && window.Clerk.session) {
+        token = await window.Clerk.session.getToken();
+      }
+      
+      if (!token) {
+        throw new Error("Failed to get authentication token");
+      }
+      
       await axios.delete(
-        `${import.meta.env.VITE_SERVER}/blog/${blogId}`,
+        `${import.meta.env.VITE_SERVER}/blog/${blog.blog_id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -76,7 +86,8 @@ const ManageBlogs = () => {
         }
       );
       
-      setBlogs(blogs.filter(blog => blog._id !== blogId));
+      // Refresh the blogs list after deletion
+      await fetchBlogs();
       toast.success("Blog deleted successfully");
     } catch (error) {
       console.error("Error deleting blog:", error);
@@ -148,7 +159,7 @@ const ManageBlogs = () => {
                     key={blog._id} 
                     blog={blog} 
                     onEdit={() => handleEdit(blog)}
-                    onDelete={() => handleDelete(blog._id)}
+                    onDelete={() => handleDelete(blog)}
                   />
                 ))}
               </div>

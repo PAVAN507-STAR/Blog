@@ -9,21 +9,39 @@ const BlogInteraction = ({ blog, setBlog }) => {
   
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [totalLikes, setTotalLikes] = useState(blog?.activity?.total_likes || 0);
   
   useEffect(() => {
     if (isLoaded && isSignedIn && blog) {
-      // Safely check if user has liked the blog
-      setIsLiked(blog.activity?.likes?.includes(user.id) || false);
-      // Check if user has saved the blog
+      checkIfLiked();
       checkIfSaved();
     }
   }, [isLoaded, isSignedIn, blog]);
+  
+  const checkIfLiked = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        `${import.meta.env.VITE_SERVER}/blog/${blog.blog_id}/liked`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      setIsLiked(response.data.isLiked);
+      setTotalLikes(response.data.totalLikes);
+    } catch (error) {
+      console.error("Error checking if blog is liked:", error);
+    }
+  };
   
   const checkIfSaved = async () => {
     try {
       const token = await getToken();
       const response = await axios.get(
-        `${import.meta.env.VITE_SERVER}/user/saved-blog/${blog._id}`,
+        `${import.meta.env.VITE_SERVER}/user/saved-blog/${blog.blog_id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -45,8 +63,9 @@ const BlogInteraction = ({ blog, setBlog }) => {
     
     try {
       const token = await getToken();
+      const endpoint = isLiked ? 'unlike' : 'like';
       const response = await axios.post(
-        `${import.meta.env.VITE_SERVER}/blog/like/${blog._id}`,
+        `${import.meta.env.VITE_SERVER}/blog/${blog.blog_id}/${endpoint}`,
         {},
         {
           headers: {
@@ -55,26 +74,19 @@ const BlogInteraction = ({ blog, setBlog }) => {
         }
       );
       
-      setIsLiked(response.data.liked);
+      setIsLiked(!isLiked);
+      setTotalLikes(response.data.totalLikes);
       
-      // Update blog with new like count
       setBlog({
         ...blog,
         activity: {
           ...blog.activity,
-          total_likes: response.data.liked 
-            ? blog.activity.total_likes + 1 
-            : blog.activity.total_likes - 1,
-          likes: response.data.liked
-            ? [...(blog.activity.likes || []), user.id]
-            : (blog.activity.likes || []).filter(id => id !== user.id)
+          total_likes: response.data.totalLikes
         }
       });
-      
-      toast.success(response.data.liked ? "Blog liked" : "Blog unliked");
     } catch (error) {
-      console.error("Error liking blog:", error);
-      toast.error("Failed to like blog");
+      console.error("Error liking/unliking blog:", error);
+      toast.error("Failed to update like status");
     }
   };
   
@@ -86,21 +98,21 @@ const BlogInteraction = ({ blog, setBlog }) => {
     
     try {
       const token = await getToken();
-      const response = await axios.post(
-        `${import.meta.env.VITE_SERVER}/user/save-blog/${blog._id}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const endpoint = isSaved ? 'unsave-blog' : 'save-blog';
+      const method = isSaved ? 'delete' : 'post';
       
-      setIsSaved(response.data.saved);
-      toast.success(response.data.saved ? "Blog saved" : "Blog unsaved");
+      const response = await axios({
+        method: method,
+        url: `${import.meta.env.VITE_SERVER}/user/${endpoint}/${blog.blog_id}`,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      setIsSaved(!isSaved);
     } catch (error) {
-      console.error("Error saving blog:", error);
-      toast.error("Failed to save blog");
+      console.error("Error saving/unsaving blog:", error);
+      toast.error("Failed to update save status");
     }
   };
   
@@ -135,7 +147,7 @@ const BlogInteraction = ({ blog, setBlog }) => {
       <div className="w-full h-[1px] bg-grey my-1"></div>
       
       <div className="text-center text-sm">
-        <p>{blog.activity?.total_likes || 0}</p>
+        <p>{totalLikes}</p>
       </div>
     </div>
   );

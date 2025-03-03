@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useUser } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/clerk-react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import CommentCard from "./comment-card.component";
@@ -9,6 +10,7 @@ import LoadMore from "./load-more.component";
 
 const Comments = ({ blog, setBlog }) => {
   const { isLoaded, isSignedIn, user } = useUser();
+  const { getToken } = useAuth();
   
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +33,7 @@ const Comments = ({ blog, setBlog }) => {
       }
       
       const response = await axios.get(
-        `${import.meta.env.VITE_SERVER}/blog/comments/${blog._id}?page=${loadMore ? page + 1 : 1}`
+        `${import.meta.env.VITE_SERVER}/blog/${blog.blog_id}/comments?page=${loadMore ? page + 1 : 1}`
       );
       
       if (loadMore) {
@@ -59,9 +61,9 @@ const Comments = ({ blog, setBlog }) => {
     }
     
     try {
-      const token = await user.getToken();
+      const token = await getToken();
       const response = await axios.post(
-        `${import.meta.env.VITE_SERVER}/blog/comment/${blog._id}`,
+        `${import.meta.env.VITE_SERVER}/blog/${blog.blog_id}/comments`,
         { content },
         {
           headers: {
@@ -96,10 +98,13 @@ const Comments = ({ blog, setBlog }) => {
     }
     
     try {
-      const token = await user.getToken();
+      const token = await getToken();
       const response = await axios.post(
-        `${import.meta.env.VITE_SERVER}/blog/comment/${blog._id}`,
-        { content, parent_id: parentId },
+        `${import.meta.env.VITE_SERVER}/blog/${blog.blog_id}/comments`,
+        { 
+          content, 
+          parent_comment: parentId 
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -138,8 +143,8 @@ const Comments = ({ blog, setBlog }) => {
   
   const handleEdit = async (commentId, content) => {
     try {
-      const token = await user.getToken();
-      const response = await axios.put(
+      const token = await getToken();
+      await axios.put(
         `${import.meta.env.VITE_SERVER}/blog/comment/${commentId}`,
         { content },
         {
@@ -152,13 +157,13 @@ const Comments = ({ blog, setBlog }) => {
       // Update comments with edited content
       const updatedComments = comments.map(comment => {
         if (comment._id === commentId) {
-          return { ...comment, content, edited: true };
+          return { ...comment, content, comment: content, edited: true };
         }
         
         if (comment.replies) {
           const updatedReplies = comment.replies.map(reply => {
             if (reply._id === commentId) {
-              return { ...reply, content, edited: true };
+              return { ...reply, content, comment: content, edited: true };
             }
             return reply;
           });
@@ -179,7 +184,7 @@ const Comments = ({ blog, setBlog }) => {
   
   const handleDelete = async (commentId) => {
     try {
-      const token = await user.getToken();
+      const token = await getToken();
       await axios.delete(
         `${import.meta.env.VITE_SERVER}/blog/comment/${commentId}`,
         {

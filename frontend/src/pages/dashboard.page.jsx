@@ -21,6 +21,7 @@ const Dashboard = () => {
     totalComments: 0
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   useEffect(() => {
     if (isLoaded && isSignedIn) {
@@ -30,7 +31,6 @@ const Dashboard = () => {
   
   const fetchStats = async () => {
     try {
-      // Get token from Clerk using the correct method
       let token = '';
       if (user && typeof user.getToken === 'function') {
         token = await user.getToken();
@@ -50,12 +50,21 @@ const Dashboard = () => {
           },
         }
       );
-      
-      setStats(response.data.stats);
-      setLoading(false);
+
+      // Map the data directly from response.data
+      setStats({
+        totalBlogs: response.data?.total_posts || 0,
+        publishedBlogs: response.data?.total_posts || 0, // Since we don't have draft count
+        totalViews: response.data?.total_reads || 0,
+        totalLikes: response.data?.total_likes || 0,
+        totalComments: response.data?.total_comments || 0
+      });
+
     } catch (error) {
       console.error("Error fetching stats:", error);
+      setError("Failed to fetch dashboard stats");
       toast.error("Failed to fetch dashboard stats");
+    } finally {
       setLoading(false);
     }
   };

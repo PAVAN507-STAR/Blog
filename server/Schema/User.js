@@ -10,7 +10,14 @@ const userSchema = mongoose.Schema({
         required: true,
         unique: true
     },
-    
+    isAdmin: {
+        type: Boolean,
+        default: false
+    },
+    isBlocked: {
+        type: Boolean,
+        default: false
+    },
     personal_info: {
         fullname: {
             type: String,
@@ -68,21 +75,32 @@ const userSchema = mongoose.Schema({
             default: "",
         }
     },
-    account_info:{
+    account_info: {
         total_posts: {
-            type: Number,
-            default: 0
+          type: Number,
+          default: 0
         },
         total_reads: {
-            type: Number,
-            default: 0
+          type: Number,
+          default: 0
         },
-    },
-    blogs: {
-        type: [Schema.Types.ObjectId],
-        ref: 'blogs',
-        default: [],
-    }
+        total_likes: {
+          type: Number,
+          default: 0
+        }
+      },
+    blogs: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Blog'
+      }],
+      saved_blogs: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Blog'
+      }],
+      liked_blogs: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Blog'
+      }],
 }, 
 { 
     timestamps: {

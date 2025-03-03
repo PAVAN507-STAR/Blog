@@ -1,29 +1,36 @@
 import React, { useState, useEffect } from "react";
 
-const InPageNavigation = ({ navItems, defaultActiveIndex = 0, children }) => {
-  const [activeTab, setActiveTab] = useState(defaultActiveIndex);
+const InPageNavigation = ({ navItems, defaultActiveIndex = 0, children, setActiveTab }) => {
+  const [localActiveIndex, setLocalActiveIndex] = useState(defaultActiveIndex);
   
   useEffect(() => {
-    setActiveTab(defaultActiveIndex);
+    setLocalActiveIndex(defaultActiveIndex);
   }, [defaultActiveIndex]);
-  
+
+  // When the local active index changes, update the parent using the provided callback.
+  useEffect(() => {
+    if (setActiveTab && navItems[localActiveIndex]) {
+      setActiveTab(navItems[localActiveIndex].id);
+    }
+  }, [localActiveIndex, navItems, setActiveTab]);
+
   return (
     <div>
       <div className="border-b border-grey mb-8 flex overflow-x-auto hide-scrollbar">
         {navItems.map((item, index) => (
           <button
             key={index}
-            onClick={() => setActiveTab(index)}
+            onClick={() => setLocalActiveIndex(index)}
             className={`px-4 py-2 whitespace-nowrap ${
-              activeTab === index ? "border-b-2 border-black font-medium" : "text-dark-grey"
+              localActiveIndex === index ? "border-b-2 border-black font-medium" : "text-dark-grey"
             }`}
           >
-            {item}
+            {item.name}
           </button>
         ))}
       </div>
       
-      {Array.isArray(children) ? children[activeTab] : children}
+      {Array.isArray(children) ? children[localActiveIndex] : children}
     </div>
   );
 };

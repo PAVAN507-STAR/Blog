@@ -21,7 +21,9 @@ const BlogPage = () => {
   const [relatedBlogs, setRelatedBlogs] = useState([]);
   
   useEffect(() => {
-    fetchBlog();
+    if (blog_id) {
+      fetchBlog();
+    }
   }, [blog_id]);
   
   const fetchBlog = async () => {
@@ -30,11 +32,24 @@ const BlogPage = () => {
         `${import.meta.env.VITE_SERVER}/blog/${blog_id}`
       );
       
-      setBlog(response.data.blog);
+      // Parse the content if it's a string
+      const blogData = response.data.blog;
+      if (typeof blogData.content === 'string') {
+        try {
+          blogData.content = JSON.parse(blogData.content);
+        } catch (e) {
+          console.error('Error parsing blog content:', e);
+          blogData.content = [];
+        }
+      }
+      
+      setBlog(blogData);
       setLoading(false);
       
       // Fetch related blogs
-      fetchRelatedBlogs(response.data.blog.tags[0]);
+      if (blogData.tags && blogData.tags.length > 0) {
+        fetchRelatedBlogs(blogData.tags[0]);
+      }
     } catch (error) {
       console.error("Error fetching blog:", error);
       toast.error("Failed to fetch blog");
@@ -71,8 +86,9 @@ const BlogPage = () => {
     <Animate>
       <Toaster />
       
-      <article className="max-w-4xl mx-auto p-4">
-        <h1 className="text-4xl font-bold mb-4">{blog.title}</h1>
+      <article className="max-w-5xl mx-auto p-4">
+        <h1 className="text-3xl font-bold mb-4">{blog.title}</h1>
+        <p className="text-dark-grey mb-6">{blog.des}</p>
         
         <div className="flex items-center gap-4 mb-6">
           <Link to={`/user/${blog.author.personal_info.username}`} className="flex items-center gap-2">
@@ -117,15 +133,19 @@ const BlogPage = () => {
         {blog.banner && (
           <img 
             src={blog.banner} 
-            alt={blog.title} 
-            className="w-full h-auto max-h-[500px] object-cover rounded-lg mb-8"
+            alt={blog.title}
+            className="w-full max-h-[500px] object-cover rounded-lg mb-8"
           />
         )}
         
-        <div 
-          className="blog-content prose prose-lg max-w-none mb-8"
-          dangerouslySetInnerHTML={{ __html: blog.content }}
-        ></div>
+        <div className="blog-content">
+          {blog.content.map((block, index) => (
+            <div key={block.id || index}>
+              {block.type === 'paragraph' && <p>{block.data.text}</p>}
+              {/* Add other content type handlers as needed */}
+            </div>
+          ))}
+        </div>
         
         <BlogInteraction blog={blog} setBlog={setBlog} />
         

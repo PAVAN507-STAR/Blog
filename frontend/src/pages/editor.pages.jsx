@@ -242,7 +242,7 @@ const Editor = () => {
         ...blog,
         content: editorData.blocks,
         draft: isDraft,
-        blog_id: blog_id || undefined
+        blog_id: blogToEdit?.blog_id || blog_id
       };
       
       const response = await axios.post(

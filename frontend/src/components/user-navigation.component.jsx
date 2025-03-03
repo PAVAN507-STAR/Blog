@@ -1,14 +1,55 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser, useAuth } from "@clerk/clerk-react";
+import axios from "axios";
 
 const UserNavigation = () => {
   const { isSignedIn, user } = useUser();
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (isSignedIn && user) {
+        try {
+          let token = '';
+          if (window.Clerk && window.Clerk.session) {
+            token = await window.Clerk.session.getToken();
+          }
+          console.log(token);
+          console.log(window.Clerk.session)
+          
+          if (!token) {
+            throw new Error("Failed to get authentication token");
+          }
+  
+          // Get the user ID from Clerk
+          const userId = user.id;
+          
+          const response = await axios.post(
+            `${import.meta.env.VITE_SERVER}/user/check-admin`,
+            { clerk_id: userId },
+            { 
+              headers: { 
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          console.log("Admin check response:", response.data);
+          setIsAdmin(response.data.isAdmin);
+        } catch (error) {
+          console.error("Admin check failed:", error);
+        }
+      }
+    };
+  
+    checkAdminStatus();
+  }, [isSignedIn, user]);
   
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -109,6 +150,18 @@ const UserNavigation = () => {
                 Settings
               </Link>
             </li>
+            {isAdmin && (
+              <li>
+                <Link 
+                  to="/admin" 
+                  className="block px-4 py-2 hover:bg-grey transition-colors"
+                  onClick={() => setShowDropdown(false)}
+                >
+                  <i className="fi fi-rr-shield-check mr-2"></i>
+                  Admin Dashboard
+                </Link>
+              </li>
+            )}
             <li className="border-t border-grey">
               <button 
                 onClick={handleSignOut}

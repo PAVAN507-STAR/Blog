@@ -20,6 +20,19 @@ const Home = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   
+  // Standard tags to display below navigation
+// First, update the standardTags array (remove count references)
+const standardTags = [
+  { name: "Technology" },
+  { name: "Programming" },
+  { name: "Science" },
+  { name: "AI" },
+  { name: "Nature" },
+  { name: "Health" },
+  { name: "Physics" },
+  { name: "Design" }
+];
+  
   useEffect(() => {
     fetchHomeData();
   }, []);
@@ -62,6 +75,10 @@ const Home = () => {
     }
   };
   
+  const navigateToTagSearch = (tag) => {
+    window.location.href = `/search?tag=${encodeURIComponent(tag)}`;
+  };
+  
   if (loading) {
     return <Loader size="lg" />;
   }
@@ -95,6 +112,23 @@ const Home = () => {
           <div className="md:col-span-2">
             <InPageNavigation navItems={["Recent", "For You"]}>
               <div>
+                {/* Standard Tags Section - Below Navigation */}
+                <div className="mb-6 mt-2">
+                  <h3 className="text-lg font-medium mb-3">Discover by Topic</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {standardTags.map((tag, index) => (
+                      <button
+                        key={index}
+                        onClick={() => navigateToTagSearch(tag.name)}
+                        className="text-md bg-grey px-3 py-1 rounded-full text-dark-grey 
+                        hover:bg-black hover:text-white transition-colors"
+                      >
+                        #{tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {recentBlogs.map(blog => (
                   blog.banner ? (
                     <BlogPostCard key={blog._id} blog={blog} />
@@ -111,6 +145,22 @@ const Home = () => {
               </div>
               
               <div>
+                {/* Standard Tags Section - Below Navigation (For You tab) */}
+                <div className="mb-6 mt-2">
+                  <h3 className="text-lg font-medium mb-3">Discover by Topic</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {standardTags.map((tag, index) => (
+                      <button
+                        key={index}
+                        onClick={() => navigateToTagSearch(tag.name)}
+                        className="text-sm bg-grey px-3 py-1 rounded-full text-dark-grey 
+                        hover:bg-black hover:text-white transition-colors"
+                      >
+                        #{tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex flex-col items-center justify-center py-10">
                   <i className="fi fi-rr-user text-4xl text-dark-grey mb-4"></i>
                   <p className="text-xl font-medium mb-4">Sign in to see personalized recommendations</p>
