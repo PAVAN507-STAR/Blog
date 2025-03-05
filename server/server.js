@@ -19,6 +19,9 @@ import Blog from './Schema/Blog.js';
 import Comment from './Schema/Comment.js';
 import Notification from './Schema/Notification.js';
 
+// Import the user type check middleware
+import { checkUserType } from './middleware/userTypeCheck.js';
+
 dotenv.config();
 const app = express();
 const port = process.env.PORT || 5001;
@@ -67,8 +70,9 @@ const formatdatatosend = (user, res) => {
 // ------------------------------
 
 // SignUp page Route
+// server.js
 app.post('/signup', async (req, res) => {
-  const { fullname, email, password } = req.body;
+  const { fullname, email, password, user_type } = req.body;
   if (fullname.length < 3 || !email.length || !passwordRegex.test(password) || !emailRegex.test(email)) {
     return res.status(403).json({ "error": "Validation failed" });
   }
@@ -76,7 +80,8 @@ app.post('/signup', async (req, res) => {
     if (err) return res.status(500).json({ "error": "Error hashing password" });
     const username = await generateusername(email);
     const user = new User({
-      personal_info: { fullname, email: email.trim(), password: hashedpass, username }
+      personal_info: { fullname, email: email.trim(), password: hashedpass, username },
+      user_type: user_type || 'user'
     });
     user.save()
       .then((u) => res.status(200).json(formatdatatosend(u, res)))
@@ -222,58 +227,47 @@ app.get('/home', async (req, res) => {
 // Protected Routes Using ClerkExpressWithAuth()
 // ------------------------------
 
-// User Sync endpoint (protected)
-// User Sync endpoint (protected)
-// User Sync endpoint (protected)
-// User Sync endpoint (protected)
 app.post('/user/sync', ClerkExpressWithAuth(), async (req, res) => {
   try {
-    const { clerk_id, email, username, fullname, profileImage } = req.body;
+    const { clerk_id, email, username, fullname, profileImage, user_type } = req.body;
     
-    // Add validation to ensure clerk_id is present
     if (!clerk_id) {
       console.warn("Missing clerk_id in user sync request");
       return res.status(400).json({ error: "clerk_id is required" });
     }
     
-    // Ensure username is present
     const finalUsername = username || email?.split('@')[0] || 'user_' + Date.now();
     
     let user = await User.findOne({ clerk_id });
     
     if (!user) {
+      // Create new user – use user_type if provided, defaulting to 'user'
       user = new User({ 
         clerk_id,
-        personal_info: {
-          fullname: fullname || finalUsername,
-          email,
-          username: finalUsername,
-          profile_img: profileImage
-        },
-        account_info: { 
-          total_posts: 0, 
-          total_reads: 0,
-          total_likes: 0
-        },
-        isAdmin: false // Default to false for new users
+        personal_info: { fullname, email: email.trim(), username: finalUsername, profile_img: profileImage },
+        account_info: { total_posts: 0, total_reads: 0, total_likes: 0 },
+        isAdmin: false,
+        user_type: user_type || 'user'
       });
       await user.save();
     } else {
-      // Update existing user but preserve isAdmin status
-      const isAdmin = user.isAdmin; // Save the current isAdmin status
-      
-      // Update personal info
+      // Update existing user.
+      // Preserve isAdmin and update personal info.
+      const isAdmin = user.isAdmin;
       user.personal_info = {
         ...user.personal_info,
         fullname: fullname || user.personal_info.fullname,
         email: email || user.personal_info.email,
         username: finalUsername,
-        profile_img: profileImage || user.personal_info.profile_img
+        profile_img: profileImage || user.personal_info.profile_img,
       };
       
-      // Make sure we don't overwrite the isAdmin status
-      user.isAdmin = isAdmin;
+      if (user_type) {
+        user.user_type = user_type;
+      }
       
+      user.isAdmin = isAdmin;
+      console.log(user)
       await user.save();
     }
     
@@ -281,7 +275,8 @@ app.post('/user/sync', ClerkExpressWithAuth(), async (req, res) => {
       user: { 
         personal_info: user.personal_info, 
         blocked: user.isBlocked || false,
-        isAdmin: user.isAdmin // Include isAdmin in the response
+        isAdmin: user.isAdmin,
+        user_type: user.user_type
       } 
     });
   } catch (error) {
@@ -289,6 +284,7 @@ app.post('/user/sync', ClerkExpressWithAuth(), async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 // Admin Check endpoint (POST version)
 app.post('/user/check-admin', async (req, res) => {
@@ -335,7 +331,7 @@ app.get('/user/check-admin', ClerkExpressWithAuth(), async (req, res) => {
 });
 
 // Create or update blog (protected)
-app.post('/blog', ClerkExpressWithAuth(), async (req, res) => {
+app.post('/blog', ClerkExpressWithAuth(), checkUserType(['admin', 'author']), async (req, res) => {
   try {
     const { title, banner, content, tags, des, draft, blog_id } = req.body;
     const clerkUserId = req.auth.userId;
@@ -375,7 +371,7 @@ app.post('/blog', ClerkExpressWithAuth(), async (req, res) => {
 });
 
 // Get user's blogs (protected)
-app.get('/user/blogs', ClerkExpressWithAuth(), async (req, res) => {
+app.get('/user/blogs', ClerkExpressWithAuth(), checkUserType(['admin', 'author']), async (req, res) => {
   try {
     const { filter = 'all' } = req.query;
     const clerkUserId = req.auth.userId;
@@ -595,6 +591,30 @@ app.get('/blog/:blog_id/liked', ClerkExpressWithAuth(), async (req, res) => {
     });
   } catch (error) {
     console.error('Check liked blog error:', error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get('/blogs', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10; // Adjust as needed
+    const skip = (page - 1) * limit;
+    
+    // Fetch blogs that are not drafts and sort by published date
+    const blogs = await Blog.find({ draft: false })
+      .sort({ publishedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('author', 'personal_info.fullname personal_info.username personal_info.profile_img');
+    
+    const totalBlogs = await Blog.countDocuments({ draft: false });
+    res.status(200).json({
+      blogs,
+      hasMore: skip + blogs.length < totalBlogs
+    });
+  } catch (error) {
+    console.error('Error fetching blogs:', error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

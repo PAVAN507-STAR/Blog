@@ -4,12 +4,14 @@ import { useUser } from "@clerk/clerk-react";
 import SearchBar from "./search-bar.component";
 import UserNavigation from "./user-navigation.component";
 import AdminContext from "./AdminContext";
+import { UserContext } from '../App';
 
 const Navbar = () => {
   const { isLoaded, isSignedIn, user } = useUser();
   const [showSearch, setShowSearch] = useState(false);
   const { isAdmin } = useContext(AdminContext);
-
+  const { userType } = useContext(UserContext);
+  console.log(userType)
   const userNavigationItems = [
     { label: "Dashboard", icon: "fi fi-rr-dashboard", path: "/dashboard" },
     { label: "Write", icon: "fi fi-rr-file-edit", path: "/editor" },
@@ -40,10 +42,12 @@ const Navbar = () => {
           
           {isLoaded && isSignedIn && (
             <>
-              <Link to="/editor" className="hidden md:flex items-center gap-2 btn-dark">
-                <i className="fi fi-rr-edit"></i>
-                <span>Write</span>
-              </Link>
+              {(userType === 'admin' || userType === 'author') && (
+                <Link to="/editor" className="hidden md:flex items-center gap-2 btn-dark">
+                  <i className="fi fi-rr-edit"></i>
+                  <span>Write</span>
+                </Link>
+              )}
               
               <Link to="/notifications" className="p-2 rounded-full hover:bg-grey relative">
                 <i className="fi fi-rr-bell text-xl"></i>
